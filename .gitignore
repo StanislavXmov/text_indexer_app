@@ -11,3 +11,4 @@ documents/
 
 # Virtual environments
 .venv
+.env

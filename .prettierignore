@@ -1,0 +1,8 @@
+data/
+documents/
+dist/
+build/
+static/
+.venv/
+node_modules/
+*.pdf

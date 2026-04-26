@@ -12,6 +12,9 @@
 
 `uv run uvicorn get_answer.api:app --reload`
 
+`uv run uvicorn fastapi_indexer_app.main:app --reload`
+`curl -X POST "http://127.0.0.1:8000/documents/index" -F "file=@documents/your_file.pdf"`
+
 ## Индексация документа (создание индекса)
 
 1. Положите PDF в папку `documents/`, например `documents/book.pdf`.

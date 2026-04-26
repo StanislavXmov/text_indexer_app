@@ -9,6 +9,10 @@ class AnswerGenerator:
         llm = OllamaLLM(
             model=config.llm_model_name,
             temperature=config.llm_temperature,
+            num_predict=config.llm_num_predict,
+            # Enforce timeout at the Ollama client level to avoid
+            # background threads hanging longer than job timeout.
+            sync_client_kwargs={"timeout": config.llm_timeout_seconds},
         )
         self._max_context_chars = config.max_context_chars
         self._chain = build_prompt() | llm

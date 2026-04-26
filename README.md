@@ -41,9 +41,12 @@
 
 `uv run python -m get_answer.ask --chroma-path "./data/chroma/set_documents/book_20260425_193504" --question "О чем эта книга?"`
 
+`uv run python -m get_answer.ask --chroma-path "./data/chroma/uploaded/etp_6f99acbf_20260426_111011_6f99acbf" --collection-name "doc_6f99acbfc0a5" --question "О чем этот документ?"`
+
 Полезные опции:
 
 - `--n-results 8` — сколько релевантных чанков извлекать из базы перед генерацией ответа.
+- `--collection-name ...` — имя коллекции в Chroma (для загруженных через API документов обязательно указывать).
 
 Пример:
 

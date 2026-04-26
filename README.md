@@ -1,53 +1,109 @@
 ## test_get_answer
 
-Небольшой тестовый проект на FastAPI.
+Проект с API для индексации PDF-документов и постановки вопросов по проиндексированному содержимому.
 
-Что делает:
+В этом README оставлено подробное описание только сервиса `fastapi_indexer_app`.
 
-- поднимает HTTP API;
-- отдает простую HTML-страницу на `GET /` (проверка, что приложение работает);
-- предоставляет endpoint `GET /health`, который возвращает `{"status": "ok"}` для health-check.
+## fastapi_indexer_app
 
-Запуск в режиме разработки:
+### Что делает сервис
 
-`uv run uvicorn get_answer.api:app --reload`
+- принимает PDF через HTTP;
+- сохраняет файл в `documents/uploaded`;
+- запускает индексацию в фоне и создает Chroma-индекс в `data/chroma/uploaded`;
+- хранит метаданные документов и jobs вопросов в DuckDB (`data/documents.duckdb`);
+- запускает вопрос к документу в фоне и дает статус/результат через job endpoint.
 
-`uv run uvicorn fastapi_indexer_app.main:app --reload`
-`curl -X POST "http://127.0.0.1:8000/documents/index" -F "file=@documents/your_file.pdf"`
+### Запуск
 
-## Индексация документа (создание индекса)
+```bash
+uv run uvicorn fastapi_indexer_app.main:app --reload
+```
 
-1. Положите PDF в папку `documents/`, например `documents/book.pdf`.
-2. (Опционально, для более стабильной/быстрой загрузки моделей) добавьте токен Hugging Face в `.env`:
-   - `HF_TOKEN=hf_...`
-3. Запустите индексацию:
+Базовый health-check:
 
-`uv run python -m set_documents.main --filename book.pdf`
+```bash
+curl "http://127.0.0.1:8000/health"
+```
 
-Что произойдет:
+Ожидаемый ответ:
 
-- документ будет прочитан и разбит на чанки;
-- для чанков будут посчитаны эмбеддинги;
-- будет создан новый индекс Chroma в папке вида `data/chroma/set_documents/book_YYYYMMDD_HHMMSS`;
-- в конце будет выведен `Collection count: ...`.
+```json
+{"status":"ok"}
+```
 
-Дополнительно можно задать базовую папку для индексов:
+### Основной сценарий работы
 
-`uv run python -m set_documents.main --filename book.pdf --chroma-path ./data/chroma/set_documents`
+1. Загрузить PDF на индексацию.
+2. Периодически проверять статус документа, пока не станет `completed`.
+3. Отправить вопрос по `document_id`.
+4. Проверять статус вопроса по `job_id`, пока не появится `answer`.
 
-## Вопрос по проиндексированному документу
+### API: документы
 
-После индексации используйте путь к созданной папке индекса:
+#### `POST /documents/index`
 
-`uv run python -m get_answer.ask --chroma-path "./data/chroma/set_documents/book_20260425_193504" --question "О чем эта книга?"`
-
-`uv run python -m get_answer.ask --chroma-path "./data/chroma/uploaded/etp_6f99acbf_20260426_111011_6f99acbf" --collection-name "doc_6f99acbfc0a5" --question "О чем этот документ?"`
-
-Полезные опции:
-
-- `--n-results 8` — сколько релевантных чанков извлекать из базы перед генерацией ответа.
-- `--collection-name ...` — имя коллекции в Chroma (для загруженных через API документов обязательно указывать).
+Загружает PDF и создает задачу фоновой индексации.
 
 Пример:
 
-`uv run python -m get_answer.ask --chroma-path "./data/chroma/set_documents/book_20260425_193504" --question "Какие ключевые темы в книге?" --n-results 8`
+```bash
+curl -X POST "http://127.0.0.1:8000/documents/index" \
+  -F "file=@documents/your_file.pdf"
+```
+
+Возвращает объект документа (`DocumentIndexResponse`) со статусом `pending`/`processing`/`completed`/`failed`.
+
+#### `GET /documents`
+
+Возвращает список всех документов (новые сверху).
+
+#### `GET /documents/{document_id}`
+
+Возвращает детали конкретного документа по `document_id`.
+
+#### `GET /documents/{document_id}/index-debug`
+
+Диагностика индекса для уже завершенного документа:
+- `collection_count`;
+- `sample_chunks` (до 2 примеров);
+- служебные поля документа.
+
+Если документ еще не завершил индексацию, вернется `409`.
+
+### API: вопросы по документу
+
+#### `POST /documents/{document_id}/ask`
+
+Создает job на генерацию ответа по документу.
+
+Тело запроса:
+
+```json
+{
+  "question": "О чем документ?",
+  "n_results": 8
+}
+```
+
+- `question` обязателен;
+- `n_results` опционален (сколько релевантных чанков извлечь перед генерацией).
+
+Ответ: `202 Accepted` и объект `DocumentQuestionJobResponse`.
+
+#### `GET /documents/ask-jobs/{job_id}`
+
+Возвращает статус и детали job по `job_id`:
+- `status` (`pending` / `processing` / `completed` / `failed`);
+- `answer` (если готов);
+- `error_message` (если ошибка).
+
+#### `GET /documents/{document_id}/ask-jobs/{job_id}`
+
+То же, что endpoint выше, но дополнительно проверяет, что job принадлежит указанному документу.
+
+### Где хранятся данные
+
+- загруженные PDF: `documents/uploaded`;
+- индексы Chroma: `data/chroma/uploaded`;
+- метаданные документов и jobs: `data/documents.duckdb`.

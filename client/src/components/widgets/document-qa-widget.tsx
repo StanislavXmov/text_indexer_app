@@ -16,6 +16,32 @@ type DocumentQaWidgetProps = {
   selectedDocument: DocumentItem | null;
 };
 
+function parseAnswerSections(rawAnswer: string) {
+  const sourcesMatch = rawAnswer.match(/\*\*Sources:\*\*([\s\S]*)$/i);
+  const answerText = sourcesMatch
+    ? rawAnswer.slice(0, sourcesMatch.index).trim()
+    : rawAnswer.trim();
+
+  const sources = sourcesMatch
+    ? sourcesMatch[1]
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => /^\d+\./.test(line))
+    : [];
+
+  return { answerText, sources };
+}
+
+function renderInlineBold(text: string) {
+  return text.split(/(\*\*[^*]+\*\*)/g).map((part, index) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      const content = part.slice(2, -2).trim();
+      return <strong key={`${content}-${index}`}>{content}</strong>;
+    }
+    return <span key={`${part}-${index}`}>{part}</span>;
+  });
+}
+
 export function DocumentQaWidget({ selectedDocument }: DocumentQaWidgetProps) {
   const [question, setQuestion] = useState("");
   const [jobId, setJobId] = useState<string | null>(null);
@@ -48,6 +74,7 @@ export function DocumentQaWidget({ selectedDocument }: DocumentQaWidgetProps) {
     selectedDocument?.status === "completed" &&
     question.trim().length > 0 &&
     !askMutation.isPending;
+  const parsedAnswer = parseAnswerSections(askJobQuery.data?.answer ?? "");
 
   return (
     <Card>
@@ -116,9 +143,34 @@ export function DocumentQaWidget({ selectedDocument }: DocumentQaWidgetProps) {
             ) : null}
 
             {askJobQuery.data?.status === "completed" ? (
-              <p className="text-sm whitespace-pre-wrap">
-                {askJobQuery.data.answer ?? "Ответ пустой"}
-              </p>
+              <div className="space-y-3 text-sm">
+                <div className="space-y-1">
+                  <p className="font-semibold">Question:</p>
+                  <p className="whitespace-pre-wrap">
+                    {askJobQuery.data.question || "Вопрос не найден"}
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <p className="font-semibold">Answer:</p>
+                  <p className="whitespace-pre-wrap">
+                    {renderInlineBold(parsedAnswer.answerText || "Ответ пустой")}
+                  </p>
+                </div>
+
+                {parsedAnswer.sources.length > 0 ? (
+                  <div className="space-y-1">
+                    <p className="font-semibold">Sources:</p>
+                    <ul className="list-decimal space-y-1 pl-5">
+                      {parsedAnswer.sources.map((source) => (
+                        <li key={source} className="break-all">
+                          {renderInlineBold(source.replace(/^\d+\.\s*/, ""))}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
             ) : null}
 
             {askJobQuery.data?.status === "failed" ? (

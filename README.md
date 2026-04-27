@@ -4,6 +4,19 @@
 
 В этом README оставлено подробное описание только сервиса `fastapi_indexer_app`.
 
+## client
+
+### Запуск в dev
+
+Из папки `client`:
+
+```bash
+pnpm install
+HOST=127.0.0.1 pnpm dev
+```
+
+По умолчанию dev-сервер поднимается на `http://127.0.0.1:5173`.
+
 ## fastapi_indexer_app
 
 ### Что делает сервис

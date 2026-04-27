@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { FileTextIcon } from "lucide-react";
 import { fetchDocuments, type DocumentItem } from "./api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -95,7 +96,10 @@ export function DocumentListWidget(props: DocumentListWidgetProps) {
               }}
             >
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium">{document.original_filename}</p>
+                <p className="flex items-center gap-2 truncate text-sm font-medium">
+                  <FileTextIcon className="text-muted-foreground size-4 shrink-0" />
+                  <span className="truncate">{document.original_filename}</span>
+                </p>
                 <p className="text-muted-foreground text-xs">{document.document_id}</p>
               </div>
               <Badge variant={statusVariant(document.status)}>{statusLabel(document.status)}</Badge>
